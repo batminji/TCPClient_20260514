@@ -1,5 +1,16 @@
 #include "stdafx.h"
 
+int PlayerX = 0;
+int PlayerY = 0;
+
+void ReceiveThread(SOCKET serverSocket);
+
+void Gotoxy(int x, int y)
+{
+	COORD pos = { (SHORT)x, (SHORT)y };
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
+}
+
 int main()
 {
 	srand((unsigned int)time(nullptr));
@@ -42,134 +53,86 @@ int main()
 		exit(-1);
 	}
 
-	int WantSendBytes = 0;
-	int SentBytes = 0;
-	int TotalSentBytes = 0;
-
-	int WantRecvBytes = 0;
-	int RecvBytes = 0;
-	int TotalRecvBytes = 0;
-
-	unsigned long PlayerX = 0;
-	unsigned long PlayerY = 0;
+	std::thread RecvWorker(ReceiveThread, ServerSocket);
+	RecvWorker.detach();
 
 	while (true)
 	{
-		// Send
-		PacketHeader SendHeader;
-		MoveData SendData;
-
-		SendData.Dir = ' ';
 		if (_kbhit())
 		{
-			char key = _getch();
-			if (key == 'w' || key == 'W')
+			char Key = _getch();
+			char Dir = ' ';
+
+			if (Key == 'w' || Key == 'W')
 			{
-				SendData.Dir = 'W';
+				Dir = 'W';
 			}
-			else if (key == 's' || key == 'S')
+			else if (Key == 's' || Key == 'S')
 			{
-				SendData.Dir = 'S';
+				Dir = 'S';
 			}
-			else if (key == 'a' || key == 'A')
+			else if (Key == 'a' || Key == 'A')
 			{
-				SendData.Dir = 'A';
+				Dir = 'A';
 			}
-			else if (key == 'd' || key == 'D')
+			else if (Key == 'd' || Key == 'D')
 			{
-				SendData.Dir = 'D';
-			}
-
-			SendHeader.Size = htons(sizeof(MoveData));
-			SendHeader.Code = htons(static_cast<unsigned short>(PacketType::Move));
-
-			// Send Header
-			WantSendBytes = sizeof(SendHeader);
-			SentBytes = 0;
-			TotalSentBytes = 0;
-
-			do
-			{
-				SentBytes = send(ServerSocket, (char*)&SendHeader + TotalSentBytes, WantSendBytes - TotalSentBytes, 0);
-				if (SentBytes == 0)
-				{
-					printf("%d", WSAGetLastError());
-					exit(-1);
-				}
-				else if (SentBytes < 0)
-				{
-					printf("Send Header Error\n");
-					exit(-1);
-				}
-				TotalSentBytes += SentBytes;
-			} while (TotalSentBytes < WantSendBytes);
-
-			// Send Data
-			WantSendBytes = sizeof(SendData);
-			SentBytes = 0;
-			TotalSentBytes = 0;
-
-			do
-			{
-				SentBytes = send(ServerSocket, (char*)&SendData + TotalSentBytes, WantSendBytes - TotalSentBytes, 0);
-				if (SentBytes <= 0)
-				{
-					printf("Send Data Error\n");
-					exit(-1);
-				}
-				TotalSentBytes += SentBytes;
-			} while (TotalSentBytes < WantSendBytes);
-
-			// Recv
-			PacketHeader RecvHeader;
-			PositionData RecvData;
-
-			// Recv Header
-			WantRecvBytes = sizeof(RecvHeader);
-			RecvBytes = 0;
-			TotalRecvBytes = 0;
-
-			RecvBytes = recv(ServerSocket, (char*)&RecvHeader + TotalRecvBytes, WantRecvBytes - TotalRecvBytes, MSG_WAITALL);
-			if (RecvBytes <= 0)
-			{
-				printf("Recv Header Error\n");
-				exit(-1);
+				Dir = 'D';
 			}
 
-			RecvHeader.Size = ntohs(RecvHeader.Size);
-			RecvHeader.Code = ntohs(RecvHeader.Code);
-
-			switch (static_cast<PacketType>(RecvHeader.Code))
+			if (Dir != ' ')
 			{
-			case PacketType::Position:
-			{
-				// Recv Data
-				WantRecvBytes = RecvHeader.Size;
-				RecvBytes = 0;
-				TotalRecvBytes = 0;
+				PacketHeader SendHeader;
+				SendHeader.Size = htons(sizeof(MoveData));
+				SendHeader.Code = htons(static_cast<unsigned short>(PacketType::Move));
 
-				RecvBytes = recv(ServerSocket, (char*)&RecvData, WantRecvBytes, MSG_WAITALL);
-				if (RecvBytes <= 0)
-				{
-					printf("Recv Data Error\n");
-					exit(-1);
-				}
+				MoveData SendData;
+				SendData.Dir = Dir;
 
-
-				PlayerX = ntohl(RecvData.X);
-				PlayerY = ntohl(RecvData.Y);
-
-				printf("Player X : %d, Player Y : %d\n", PlayerX, PlayerY);
+				send(ServerSocket, (char*)&SendHeader, sizeof(SendHeader), 0);
+				send(ServerSocket, (char*)&SendData, sizeof(SendData), 0);
 			}
-			break;
-			default:
-				printf("InValid Packet Code\n");
-				break;
-			}
-		}	
+		}
+
+		Gotoxy(0, 0);
+		printf("Player X: %d, Player Y: %d\n", PlayerX, PlayerY);
 	}
 
 	closesocket(ServerSocket);
 
 	WSACleanup();
+}
+
+void ReceiveThread(SOCKET serverSocket)
+{
+	while (true)
+	{
+		PacketHeader RecvHeader;
+		int retval = recv(serverSocket, (char*)&RecvHeader, sizeof(RecvHeader), MSG_WAITALL);
+		if (retval <= 0) {
+			printf("Sever Connect Header\n");
+			break;
+		}
+
+		unsigned short Size = ntohs(RecvHeader.Size);
+		unsigned short Code = ntohs(RecvHeader.Code);
+
+		switch (static_cast<PacketType>(Code))
+		{
+		case PacketType::Position:
+		{
+			PositionData PosData;
+			retval = recv(serverSocket, (char*)&PosData, Size, MSG_WAITALL);
+			if (retval <= 0) break;
+
+			PlayerX = ntohl(PosData.X);
+			PlayerY = ntohl(PosData.Y);
+		}
+		break;
+		default:
+			char dummy[1024];
+			recv(serverSocket, dummy, Size, MSG_WAITALL);
+			break;
+		}
+	}
 }
