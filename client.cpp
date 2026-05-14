@@ -20,15 +20,7 @@ int main()
 		return 1;
 	}
 
-	hostent* HostInfo = gethostbyname("login.calculate.edu");
-
-	char ServerIP[1024] = { 0, };
-	IN_ADDR Addr;
-	Addr.s_addr = *(ULONG*)*HostInfo->h_addr_list;
-	sprintf_s(ServerIP, "%s", inet_ntoa(Addr));
-	printf("%s\n", ServerIP);
-
-	SOCKET ServerSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	SOCKET ServerSocket = socket(PF_INET, SOCK_STREAM, 0);
 	if (ServerSocket == INVALID_SOCKET)
 	{
 		std::cout << "Listen Socket Error" << std::endl;
@@ -38,7 +30,7 @@ int main()
 	SOCKADDR_IN ServerSocketAddr;
 	memset(&ServerSocketAddr, 0, sizeof(ServerSocketAddr));
 	ServerSocketAddr.sin_family = AF_INET;
-	if (!inet_pton(AF_INET, ServerIP, (PVOID)&ServerSocketAddr.sin_addr.s_addr))
+	if (!inet_pton(AF_INET, SERVER_IP, (PVOID)&ServerSocketAddr.sin_addr.s_addr))
 	{
 		printf("inet_pton Error\n");
 		exit(-1);
@@ -95,7 +87,7 @@ int main()
 		}
 
 		Gotoxy(0, 0);
-		printf("Player X: %d, Player Y: %d\n", PlayerX, PlayerY);
+		std::print("Player X: {:03}, Player Y: {:03}\n", PlayerX, PlayerY);
 	}
 
 	closesocket(ServerSocket);
