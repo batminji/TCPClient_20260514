@@ -139,23 +139,33 @@ int main()
 			RecvHeader.Size = ntohs(RecvHeader.Size);
 			RecvHeader.Code = ntohs(RecvHeader.Code);
 
-			// Recv Data
-			WantRecvBytes = RecvHeader.Size;
-			RecvBytes = 0;
-			TotalRecvBytes = 0;
-
-			RecvBytes = recv(ServerSocket, (char*)&RecvData, WantRecvBytes , MSG_WAITALL);
-			if (RecvBytes <= 0)
+			switch (static_cast<PacketType>(RecvHeader.Code))
 			{
-				printf("Recv Data Error\n");
-				exit(-1);
+			case PacketType::Position:
+			{
+				// Recv Data
+				WantRecvBytes = RecvHeader.Size;
+				RecvBytes = 0;
+				TotalRecvBytes = 0;
+
+				RecvBytes = recv(ServerSocket, (char*)&RecvData, WantRecvBytes, MSG_WAITALL);
+				if (RecvBytes <= 0)
+				{
+					printf("Recv Data Error\n");
+					exit(-1);
+				}
+
+
+				PlayerX = ntohl(RecvData.X);
+				PlayerY = ntohl(RecvData.Y);
+
+				printf("Player X : %d, Player Y : %d\n", PlayerX, PlayerY);
 			}
-
-
-			PlayerX = ntohl(RecvData.X);
-			PlayerY = ntohl(RecvData.Y);
-
-			printf("Player X : %d, Player Y : %d\n", PlayerX, PlayerY);
+			break;
+			default:
+				printf("InValid Packet Code\n");
+				break;
+			}
 		}	
 	}
 
