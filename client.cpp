@@ -59,7 +59,7 @@ int main()
 		PacketHeader SendHeader;
 		MoveData SendData;
 
-		SendData.Dir = htons(' ');
+		SendData.Dir = ' ';
 		if (_kbhit())
 		{
 			char key = _getch();
@@ -129,35 +129,28 @@ int main()
 			RecvBytes = 0;
 			TotalRecvBytes = 0;
 
-			do
+			RecvBytes = recv(ServerSocket, (char*)&RecvHeader + TotalRecvBytes, WantRecvBytes - TotalRecvBytes, MSG_WAITALL);
+			if (RecvBytes <= 0)
 			{
-				RecvBytes = recv(ServerSocket, (char*)&RecvHeader + TotalRecvBytes, WantRecvBytes - TotalRecvBytes, MSG_WAITALL);
-				if (RecvBytes <= 0)
-				{
-					printf("Recv Header Error\n");
-					exit(-1);
-				}
-				TotalRecvBytes += RecvBytes;
-			} while (TotalRecvBytes < WantRecvBytes);
+				printf("Recv Header Error\n");
+				exit(-1);
+			}
 
 			RecvHeader.Size = ntohs(RecvHeader.Size);
 			RecvHeader.Code = ntohs(RecvHeader.Code);
 
 			// Recv Data
-			WantRecvBytes = sizeof(RecvHeader.Size);
+			WantRecvBytes = RecvHeader.Size;
 			RecvBytes = 0;
 			TotalRecvBytes = 0;
 
-			do
+			RecvBytes = recv(ServerSocket, (char*)&RecvData, WantRecvBytes , MSG_WAITALL);
+			if (RecvBytes <= 0)
 			{
-				RecvBytes = recv(ServerSocket, (char*)&RecvData + TotalRecvBytes, WantRecvBytes - TotalRecvBytes, MSG_WAITALL);
-				if (RecvBytes <= 0)
-				{
-					printf("Recv Data Error\n");
-					exit(-1);
-				}
-				TotalRecvBytes += RecvBytes;
-			} while (TotalRecvBytes < WantRecvBytes);
+				printf("Recv Data Error\n");
+				exit(-1);
+			}
+
 
 			PlayerX = ntohl(RecvData.X);
 			PlayerY = ntohl(RecvData.Y);
